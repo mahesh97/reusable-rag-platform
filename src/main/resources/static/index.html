@@ -1,0 +1,516 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Knowledge Assistant</title>
+
+    <!-- Markdown rendering -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> -->
+
+    <!-- HTML sanitization for safe Markdown rendering -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>  -->
+
+    <script src="/js/marked.min.js"></script>
+    <script src="/js/purify.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+        }
+
+        h1 {
+            color: #243b55;
+        }
+
+        .section {
+            margin-top: 25px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover:not(:disabled) {
+            background: #1d4ed8;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        input {
+            margin: 15px 0;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            margin: 15px 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            font-size: 15px;
+            resize: vertical;
+        }
+
+        .message {
+            margin-top: 12px;
+            font-weight: bold;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+
+        .loading {
+            color: #2563eb;
+        }
+
+        /* Claude answer */
+
+        .answer {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f4f7fb;
+            border-radius: 8px;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+        }
+
+        .answer h1,
+        .answer h2,
+        .answer h3 {
+            color: #243b55;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .answer h1 {
+            font-size: 24px;
+        }
+
+        .answer h2 {
+            font-size: 21px;
+        }
+
+        .answer h3 {
+            font-size: 18px;
+        }
+
+        .answer p {
+            margin: 12px 0;
+        }
+
+        .answer ul,
+        .answer ol {
+            padding-left: 25px;
+        }
+
+        .answer li {
+            margin-bottom: 8px;
+        }
+
+        .answer strong {
+            color: #1e293b;
+        }
+
+        .answer code {
+            background: #e5e7eb;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        .answer pre {
+            background: #1e293b;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        .answer pre code {
+            background: transparent;
+            color: inherit;
+        }
+
+        .answer blockquote {
+            border-left: 4px solid #2563eb;
+            margin-left: 0;
+            padding-left: 15px;
+            color: #475569;
+        }
+
+        /* Retrieved sources */
+
+        .source-item {
+            margin-top: 12px;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .source-text {
+            margin-top: 8px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .section {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>AI Knowledge Assistant</h1>
+    <p>Upload your documents and ask questions using AI.</p>
+
+    <!-- Document Upload -->
+    <div class="section">
+
+        <h2>Upload Documents</h2>
+
+        <input
+                type="file"
+                id="documentFile"
+                accept=".pdf,.docx,.txt">
+
+        <button
+                id="uploadButton"
+                type="button"
+                onclick="uploadDocument()">
+            Upload Document
+        </button>
+
+        <div id="uploadMessage" class="message"></div>
+
+    </div>
+
+    <!-- Knowledge Base -->
+    <div class="section">
+
+        <h2>Knowledge Base</h2>
+
+        <button
+                type="button"
+                onclick="loadDocuments()">
+            Refresh Documents
+        </button>
+
+        <table>
+            <thead>
+            <tr>
+                <th>File Name</th>
+                <th>Size (KB)</th>
+                <th>Uploaded At</th>
+            </tr>
+            </thead>
+
+            <tbody id="documentList">
+            </tbody>
+        </table>
+
+    </div>
+
+    <!-- AI Chat -->
+    <div class="section">
+
+        <h2>Ask Your Documents</h2>
+
+        <textarea
+                id="question"
+                placeholder="Ask a question about your documents..."></textarea>
+
+        <button
+                id="askButton"
+                type="button"
+                onclick="askQuestion()">
+            Ask AI
+        </button>
+
+        <div id="chatMessage" class="message"></div>
+
+        <div id="answerSection" style="display:none;">
+
+            <h3>Claude's Answer</h3>
+
+            <div id="answer" class="answer"></div>
+
+            <h3>Retrieved Sources</h3>
+
+            <div id="sources"></div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+// Upload document
+async function uploadDocument() {
+
+    const fileInput = document.getElementById("documentFile");
+    const message = document.getElementById("uploadMessage");
+    const button = document.getElementById("uploadButton");
+
+    if (!fileInput.files.length) {
+        message.className = "message error";
+        message.textContent = "Please select a document.";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    button.disabled = true;
+
+    message.className = "message loading";
+    message.textContent = "Uploading document...";
+
+    try {
+
+        const response = await fetch("/api/documents/upload", {
+            method: "POST",
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || "Upload failed.");
+        }
+
+        message.className = "message success";
+        message.textContent = result.message;
+
+        fileInput.value = "";
+
+        await loadDocuments();
+
+    } catch (error) {
+
+        message.className = "message error";
+        message.textContent = error.message;
+
+    } finally {
+
+        button.disabled = false;
+    }
+}
+
+
+// Load documents
+async function loadDocuments() {
+
+    const documentList = document.getElementById("documentList");
+
+    try {
+
+        const response = await fetch("/api/documents");
+
+        if (!response.ok) {
+            throw new Error("Unable to load documents.");
+        }
+
+        const documents = await response.json();
+
+        documentList.replaceChildren();
+
+        documents.forEach(doc => {
+
+            const row = document.createElement("tr");
+
+            const nameCell = document.createElement("td");
+            nameCell.textContent = doc.fileName;
+
+            const sizeCell = document.createElement("td");
+            sizeCell.textContent = (doc.fileSize / 1024).toFixed(2);
+
+            const dateCell = document.createElement("td");
+            dateCell.textContent = new Date(doc.uploadedAt)
+                .toLocaleString();
+
+            row.append(nameCell, sizeCell, dateCell);
+
+            documentList.appendChild(row);
+        });
+
+    } catch (error) {
+
+        documentList.textContent = error.message;
+    }
+}
+
+
+// Ask Claude using RAG API
+async function askQuestion() {
+
+    const question = document.getElementById("question").value.trim();
+
+    const button = document.getElementById("askButton");
+    const message = document.getElementById("chatMessage");
+
+    const answerSection = document.getElementById("answerSection");
+    const answerElement = document.getElementById("answer");
+    const sourcesContainer = document.getElementById("sources");
+
+    if (!question) {
+
+        message.className = "message error";
+        message.textContent = "Please enter a question.";
+
+        return;
+    }
+
+    // Check Markdown dependencies
+    if (typeof marked === "undefined" || typeof DOMPurify === "undefined") {
+
+        message.className = "message error";
+        message.textContent =
+            "Markdown libraries could not be loaded. Check your internet connection.";
+
+        return;
+    }
+
+    button.disabled = true;
+
+    message.className = "message loading";
+    message.textContent = "Searching documents and generating answer...";
+
+    answerSection.style.display = "none";
+
+    try {
+
+        const response = await fetch("/api/chat", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                question: question,
+                limit: 5
+            })
+
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || "Unable to generate answer.");
+        }
+
+        // Convert Markdown to HTML and sanitize it
+        const markdownHtml = marked.parse(result.answer || "");
+
+        const safeHtml = DOMPurify.sanitize(markdownHtml);
+
+        answerElement.innerHTML = safeHtml;
+
+        // Display retrieved sources
+        sourcesContainer.replaceChildren();
+
+        (result.sources || []).forEach(source => {
+
+            const item = document.createElement("div");
+            item.className = "source-item";
+
+            const heading = document.createElement("strong");
+
+            heading.textContent =
+                source.fileName + " - Chunk " + source.chunkIndex;
+
+            const excerpt = document.createElement("div");
+
+            excerpt.className = "source-text";
+            excerpt.textContent = source.chunkText;
+
+            item.append(heading, excerpt);
+
+            sourcesContainer.appendChild(item);
+        });
+
+        answerSection.style.display = "block";
+
+        message.className = "message success";
+        message.textContent = "Answer generated successfully.";
+
+    } catch (error) {
+
+        message.className = "message error";
+        message.textContent = error.message;
+
+    } finally {
+
+        button.disabled = false;
+    }
+}
+
+
+// Load documents when page opens
+window.addEventListener("DOMContentLoaded", loadDocuments);
+
+</script>
+
+</body>
+</html>
